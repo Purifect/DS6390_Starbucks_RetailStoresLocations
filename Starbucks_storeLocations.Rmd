@@ -1,0 +1,187 @@
+---
+title: "Untitled"
+author: "Puri Rudick"
+date: "11/3/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(ggmap)
+library(tidycensus)
+library(ggthemes)
+library(scales)
+library(maps)
+library(mapdata)
+library(ggplot2)
+library(maps)
+library(tigris)
+library(mapproj)
+library(readr)
+```
+
+```{r}
+starbucks_data <- read_csv('starbucks_directory.csv')
+
+head(starbucks_data)
+str(starbucks_data)
+```
+
+```{r}
+# Filter for only Starbucks stores in the US
+starbucks_us <- starbucks_data %>% filter(Country == 'US')
+
+starbucks_us <- starbucks_us %>%
+  select(-c(`Store Number`, `Store Name`, `Phone Number`, Country, Timezone)) %>%
+  filter(Brand == 'Starbucks')
+
+# Change the column name with '/'
+starbucks_us <- starbucks_us %>% rename('State' = 'State/Province')
+
+# Get the right format for zip code
+starbucks_us$Postcode <- substr(starbucks_us$Postcode, start = 1, stop = 5)
+starbucks_us$Postcode <- str_pad(starbucks_us$Postcode, width = 5, side = 'left', pad = '0')
+
+dim(starbucks_us)
+colSums(is.na(starbucks_us))
+```
+
+```{r}
+census_api_key("181f11c579e665cf03575f5cc8313e0d612020b8")
+```
+
+```{r}
+v20 <- load_variables(2019, "acs5", cache = TRUE)
+
+View(v20)
+```
+
+```{r}
+acs_data <- get_acs(geography = 'zcta', variables = c(total_population = 'B01001_001', 
+                                                 median_age = 'B01002_001', 
+                                                 male_25_29 = 'B01001_011',
+                                                 male_30_34 = 'B01001_012',
+                                                 male_35_39 = 'B01001_013',
+                                                 male_40_44 = 'B01001_014',
+                                                 male_45_49 = 'B01001_015',
+                                                 male_50_54 = 'B01001_016',
+                                                 male_55_59 = 'B01001_017',
+                                                 male_60_61 = 'B01001_018',
+                                                 male_62_64 = 'B01001_019',
+                                                 male_65_66 = 'B01001_020',
+                                                 male_67_69 = 'B01001_021',
+                                                 male_70_74 = 'B01001_022',
+                                                 male_75_79 = 'B01001_023',
+                                                 male_80_84 = 'B01001_024',
+                                                 male_85_plus = 'B01001_025',
+                                                 female_25_29 = 'B01001_035',
+                                                 female_30_34 = 'B01001_036',
+                                                 female_35_39 = 'B01001_037',
+                                                 female_40_44 = 'B01001_038',
+                                                 female_45_49 = 'B01001_039',
+                                                 female_50_54 = 'B01001_040',
+                                                 female_55_59 = 'B01001_041',
+                                                 female_60_61 = 'B01001_042',
+                                                 female_62_64 = 'B01001_043',
+                                                 female_65_66 = 'B01001_044',
+                                                 female_67_69 = 'B01001_045',
+                                                 female_70_74 = 'B01001_046',
+                                                 female_75_79 = 'B01001_047',
+                                                 female_80_84 = 'B01001_048',
+                                                 female_85_plus = 'B01001_049',
+                                                 leave_630_7 = 'B08011_006',
+                                                 leave_7_730 = 'B08011_007',
+                                                 leave_730_8 = 'B08011_008',
+                                                 leave_8_830 = 'B08011_009',
+                                                 leave_830_9 = 'B08011_010',
+                                                 walk_to_work = 'B08006_015',
+                                                 total_households = 'B11001_002',
+                                                 high_school_diploma = 'B15003_017',
+                                                 bachelors_degree = 'B15003_022',
+                                                 masters_degree = 'B15003_023',
+                                                 median_hh_income = 'B19013_001',
+                                                 income_hh_50_60 = 'B19001_011',
+                                                 income_hh_60_75 = 'B19001_012',
+                                                 income_hh_75_100 = 'B19001_013',
+                                                 income_hh_100_125 = 'B19001_014',
+                                                 income_hh_125_150 = 'B19001_015',
+                                                 income_hh_150_200 = 'B19001_016',
+                                                 income_hh_200_plus = 'B19001_017',
+                                                 male_workers = 'B23022_003',
+                                                 female_workers = 'B23022_027',
+                                                 renter_occupied = 'B25008_003',
+                                                 median_rent = 'B25031_001',
+                                                 median_home_value = 'B25077_001'
+                                                 ),
+              output = 'wide')
+```
+
+```{r}
+acs_data <- acs_data %>%
+  select(ends_with('E')) %>%
+  separate(NAME, into = c('zcta','zip_code')) %>%
+  select(-zcta)
+```
+
+```{r}
+acs_data <- acs_data %>%
+  mutate(male_25_49 = rowSums(acs_data[,4:8], na.rm = TRUE),
+         female_25_49 = rowSums(acs_data[, 19:23], na.rm = T),
+         total_25_49 = male_25_49 + female_25_49,
+         percent_25_49 = total_25_49 / total_populationE,
+         male_25_plus = rowSums(acs_data[,4:18], na.rm = T),
+         female_25_plus = rowSums(acs_data[,19:33], na.rm = T),
+         total_25_plus = male_25_plus + female_25_plus,
+         percent_25_plus = total_25_plus / total_populationE,
+         total_workers = male_workersE + female_workersE,
+         percent_workers = total_workers / total_populationE,
+         leave_7_9 = rowSums(acs_data[,34:39], na.rm = T),
+         percent_leave_7_9 = leave_7_9 / total_workers,
+         perc_hs_dipl = high_school_diplomaE / total_25_plus,
+         perc_bach_deg = bachelors_degreeE / total_25_plus,
+         perc_masters_deg = masters_degreeE / total_25_plus,
+         perc_income_hh_50_60 = income_hh_50_60E / total_householdsE,
+         perc_income_hh_60_75 = income_hh_60_75E / total_householdsE,
+         perc_income_hh_75_100 = income_hh_75_100E / total_householdsE,
+         perc_income_hh_100_125 = income_hh_100_125E / total_householdsE,
+         perc_income_hh_125_150 = income_hh_125_150E / total_householdsE,
+         perc_income_hh_150_200 = income_hh_150_200E / total_householdsE,
+         perc_renter_occupied = renter_occupiedE / total_populationE,
+         perc_walk_to_work = walk_to_workE / total_workers
+)
+```
+
+```{r}
+acs_slim <- acs_data %>%
+  select(zip_code, total_populationE, median_ageE, total_householdsE, median_hh_incomeE, median_rentE, median_home_valueE,
+         percent_25_49, percent_25_plus, total_workers, percent_workers, percent_leave_7_9, perc_hs_dipl, perc_bach_deg, perc_masters_deg, perc_income_hh_50_60, perc_income_hh_60_75, perc_income_hh_75_100, perc_income_hh_100_125, perc_income_hh_125_150, perc_income_hh_150_200, perc_renter_occupied, perc_walk_to_work)
+```
+
+
+```{r}
+starbucks_count <- starbucks_us %>% count(Postcode, sort = TRUE)
+
+colnames(starbucks_count)[colnames(starbucks_count) == 'n'] <- 'starbucks_store'
+
+head(starbucks_count)
+```
+
+
+```{r}
+starbucks_m <- acs_slim %>%
+  left_join(starbucks_count, by = c('zip_code' = 'Postcode'))
+
+starbucks_m$starbucks_store[is.na(starbucks_m$starbucks_store)] <- 0
+
+glimpse(starbucks_m)
+```
+
+```{r}
+
+ggplot(starbucks_m, aes(x=starbucks_store, y=total_householdsE)) + geom_point()
+
+```
