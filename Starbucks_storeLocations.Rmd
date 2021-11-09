@@ -25,32 +25,6 @@ library(readr)
 ```
 
 ```{r}
-starbucks_data <- read_csv('starbucks_directory.csv')
-
-head(starbucks_data)
-str(starbucks_data)
-```
-
-```{r}
-# Filter for only Starbucks stores in the US
-starbucks_us <- starbucks_data %>% filter(Country == 'US')
-
-starbucks_us <- starbucks_us %>%
-  select(-c(`Store Number`, `Store Name`, `Phone Number`, Country, Timezone)) %>%
-  filter(Brand == 'Starbucks')
-
-# Change the column name with '/'
-starbucks_us <- starbucks_us %>% rename('State' = 'State/Province')
-
-# Get the right format for zip code
-starbucks_us$Postcode <- substr(starbucks_us$Postcode, start = 1, stop = 5)
-starbucks_us$Postcode <- str_pad(starbucks_us$Postcode, width = 5, side = 'left', pad = '0')
-
-dim(starbucks_us)
-colSums(is.na(starbucks_us))
-```
-
-```{r}
 census_api_key("181f11c579e665cf03575f5cc8313e0d612020b8")
 ```
 
